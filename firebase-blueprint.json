@@ -1,0 +1,182 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "TravelPilot user profile created upon first authentication.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user.",
+          "maxLength": 128
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's display name.",
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "description": "User's primary email address.",
+          "maxLength": 254
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "User's profile photo URL.",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp."
+        }
+      },
+      "required": ["uid", "email"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "A travel plan created by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique trip document identifier.",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns this trip.",
+          "maxLength": 128
+        },
+        "destination": {
+          "type": "string",
+          "description": "Destination city or region name.",
+          "maxLength": 200
+        },
+        "destinationType": {
+          "type": "string",
+          "enum": ["city", "outstation"],
+          "description": "Type of trip destination."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Trip start date (YYYY-MM-DD).",
+          "maxLength": 30
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Trip end date (YYYY-MM-DD).",
+          "maxLength": 30
+        },
+        "budgetTier": {
+          "type": "string",
+          "enum": ["budget", "moderate", "luxury"],
+          "description": "Selected budget tier."
+        },
+        "budgetAmount": {
+          "type": "number",
+          "description": "Target estimated budget in USD."
+        },
+        "groupType": {
+          "type": "string",
+          "enum": ["solo", "friends", "family"],
+          "description": "Travel group categorization."
+        },
+        "travelerCount": {
+          "type": "number",
+          "description": "Total number of travelers."
+        },
+        "pace": {
+          "type": "string",
+          "enum": ["relaxed", "balanced", "packed"],
+          "description": "Trip pacing preference."
+        },
+        "activityLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Desired activity intensity."
+        },
+        "interests": {
+          "type": "array",
+          "description": "Tags of user travel interests."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planning", "confirmed", "archived"],
+          "description": "Current lifecycle status of the trip."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the trip was initialized."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the trip was last modified."
+        },
+        "isShared": {
+          "type": "boolean",
+          "description": "Whether public link sharing is enabled for this trip."
+        },
+        "shareToken": {
+          "type": "string",
+          "description": "Secure random share token for public access.",
+          "maxLength": 128
+        }
+      },
+      "required": ["userId", "destination"]
+    },
+    "SharedTrip": {
+      "title": "SharedTrip",
+      "description": "Public share reference mapping a token to a shared trip without exposing private document listings.",
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "description": "The ID of the trip being shared.",
+          "maxLength": 128
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns the trip.",
+          "maxLength": 128
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the share link is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last modified timestamp."
+        }
+      },
+      "required": ["tripId", "ownerId", "enabled"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Private user account documents strictly accessible only by the owner."
+    },
+    "/sharedTrips/{shareToken}": {
+      "schema": { "$ref": "#/entities/SharedTrip" },
+      "description": "Public token lookup references for shared trips; enumeration is disabled."
+    },
+    "/trips/{tripId}": {
+      "schema": { "$ref": "#/entities/Trip" },
+      "description": "User trips accessible by the authenticated owner, or read-only if actively shared."
+    }
+  }
+}

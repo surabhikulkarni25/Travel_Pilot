@@ -1,0 +1,6 @@
+{
+  "name": "TravelPilot",
+  "description": "Intelligent AI-powered trip planning application with personalized itineraries and budget coordination.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

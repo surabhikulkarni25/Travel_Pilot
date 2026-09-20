@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Validation Blueprint for User Document
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email'])
+        && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 254
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000));
+    }
+
+    // Validation Blueprint for Trip Document
+    function isValidTrip(data) {
+      return data.keys().hasAll(['userId', 'destination'])
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.destination is string && data.destination.size() > 0 && data.destination.size() <= 200
+        && (!('destinationType' in data) || (data.destinationType in ['city', 'outstation']))
+        && (!('budgetTier' in data) || (data.budgetTier in ['budget', 'moderate', 'luxury']))
+        && (!('groupType' in data) || (data.groupType in ['solo', 'friends', 'family']))
+        && (!('pace' in data) || (data.pace in ['relaxed', 'balanced', 'packed']))
+        && (!('activityLevel' in data) || (data.activityLevel in ['low', 'medium', 'high']))
+        && (!('status' in data) || (data.status in ['planning', 'confirmed', 'archived']))
+        && (!('interests' in data) || (data.interests is list && data.interests.size() <= 30));
+    }
+
+    // Connection test collection for app initialization health check
+    match /test/{docId} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // User profiles: strictly owner-only access
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().uid == request.auth.uid;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().uid == request.auth.uid;
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+
+    // Shared trips: public read-only lookup by token (enumeration strictly disallowed)
+    match /sharedTrips/{shareToken} {
+      allow get: if resource != null && resource.data.enabled == true && isValidId(shareToken);
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(shareToken) && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(shareToken) && resource != null && resource.data.ownerId == request.auth.uid && incoming().ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(shareToken) && resource != null && resource.data.ownerId == request.auth.uid;
+    }
+
+    // User trips: strictly authenticated owner-only access, OR public get if explicitly shared
+    match /trips/{tripId} {
+      allow get: if (isSignedIn() && isValidId(tripId) && (resource == null || resource.data.userId == request.auth.uid))
+                 || (resource != null && resource.data.isShared == true && resource.data.shareToken != null);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(tripId) && isValidTrip(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(tripId) && resource != null && resource.data.userId == request.auth.uid && isValidTrip(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if isSignedIn() && isValidId(tripId) && (resource == null || resource.data.userId == request.auth.uid);
+    }
+  }
+}
